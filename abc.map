@@ -1,0 +1,25 @@
+Modules list:
+-------------
+abc.o:
+    CART              Offs = 000000   Size = 000419
+abc-slik.o:
+    CART              Offs = 000419   Size = 0001AF
+    JUMP              Offs = 000000   Size = 00001E
+
+
+Segment list:
+-------------
+Name                  Start   End     Size
+--------------------------------------------
+CART                  009FFE  00A5C5  0005C8
+JUMP                  00AF00  00AF1D  00001E
+
+
+Exports list:
+-------------
+
+
+
+Imports list:
+-------------
+

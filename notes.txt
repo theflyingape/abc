@@ -1,0 +1,98 @@
+When does a SPRITE have to redraw?
+
+- when enabled
+- when position, image, color or any other attribute changes
+- when a new TILE is written in a cell occupied by it
+
+excluding the above, if the SPRITE's UDC remains unchanged for both
+video flips, it is not necessary to erase it.  What does that really save?
+
+Assume a use-case of 16 sprites, all in a 2x2 arrangement ...
+that's 64x reads, saves & writes to new buffer,
+and 64x reads & erasures to old buffer:
+
+with color, 256 ops + 192 ops = 448 ops per frame
+
+assume an average of 20 cycles per cell,
+that's ~10,000 cycles or 2/3 a frame draw.
+
+
+VIC + Ultimem
+=============
+video 1 / 2	VIC displays @ $1000 / $1200
+video 3 / 4	VIC displays @ $1400 / $1600
+UDC		256 user-defined characters: 2K
+color #0 & #1	VIC colors @ $9400 / $9600
+index list	$9800
+color list	$9900	b7:b8, b6:v2, b5:v1, b4:paint, b3:multicolor, b2-0:palette
+tile list	$9A00	data
+Ultimem		$9B00	tiles codes b1-0:00=back, 01=sprite, 10=fore, 11=hero
+field #1	$9C00	background tiles for v1
+field #2	$9E00	background tiles for v2
+
+$0400 - 	SPRITE registers
+      - $0FFF	SPRITE shifted images
+
+DISPLAY registers
+=================
+MODE	b7:1=bitmap,0=udc; b6:1=single,0=double, b1-0:00=$1000,01=$1200,10=$1400,11=$1600
+
+0&1:	TOP	0 = none, 1, 2, or 3-rows, BASIC input buffer: $0200
+2&3:	BOTTOM	0 = none, 1, 2, or 3-rows, DATASETTE buffer: $033C
+6:	
+7:	HIRES	0 = char-mapped, 1 = bit-mapped
+
+VIC	0	horizontal
+VIC	1	vertical
+VIC	2	b7:video, columns
+VIC	3	rows / 2, b0:bitmapped
+VIC	5	b7-4:video, b3-0:udc (bitmapped=%1100, %1110=256, %1111=128)
+VIC	F	b7-4:screen, b3:invert, b2-0:border
+
+
+VIC-ABC SLIK graphics
+---------------------
+0&1:	TOP	0 = none, 1, 2, or 3-rows, BASIC input buffer: $0200
+2&3:	BOTTOM	0 = none, 1, 2, or 3-rows, DATASETTE buffer: $033C
+6:	
+7:	HIRES	0 = char-mapped, 1 = bit-mapped
+
+BIT mapped mode
+---------------
+- max size 22x20 = 3520 bytes needed (220 8x16 UDC)
+- double-height characters @ $1000 - $1DBF (max)
+- 4 custom UDC @ $1DC0 as an all-purpose 8x16 sprite
+- video matrix fixed @ $1E00
+
+
+SPRITE registers (0-255)
+================
+HEIGHT	1	1-56
+WIDTH	1	tiles: 1-7
+X	1	ordinate: 0-255
+Y	1	ordinate: 0-255
+COLOR1	1	b7:draw, b6:foreground, b4:paint, b3:multicolor, b2-0:palette
+COLOR2	1	b7:draw, b6:foreground, b4:paint, b3:multicolor, b2-0:palette
+UDC1	1	UDC: 0 -> 255
+UDC2	1	UDC: 0 -> 255
+IMAGE	2	base address, where x mod 8 == 0
+STRIP	2	add to IMAGE: 0=none, (8*tiles * (x mod 8))
+MODE	1	b7:enable, b6:collision, b5:ghost, b4:repeat, b3:float-X, b2:float-Y, b0:hero
+STATUS	1	b7:swap UDC, b6:UDC1/2 in use, b2:sprite, b1:foreground, b0:background
+
+RENDER FARM jump table
+
+SLIKACELL	fixed, no overflow UDC
+SLIKXCELL	horizontal overflow UDC(s)
+SLIKYCELL	vertical overflow UDC(s)
+SLIKZCELL	overflow UDCs
+
+IRQ
+
+1) process lists to restore current video, adding to lists any double-writes
+2) swap video making pending = current
+3) process lists to update current video
+4) write sprites, swapping flagged UDC tiles, and saving background to lists
+5) JMP user handler
+
+

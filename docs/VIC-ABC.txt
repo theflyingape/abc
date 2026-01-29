@@ -1,0 +1,273 @@
+VIC ABC: the VIC Awesome Boot Cartridge
+
+
+Optional use of the 3K memory expander AND 8/16/24K memory expansion(s):
+
+0000 - 00FF	6502 zero page
+0100 - 01FF	6502 stack
+0200 - 03FF	kernal runtime
+0400 - 0FFF	1K VIDEO buffers: PLAYFIELD & PLAYCOLOR (or RENDERED images)
+		1K RENDERED images: 128x8 X shifted
+		1K RUNTIME stacks: SPRITELO, SPRITEHI, TILELO, TILEHI
+1000 - 13FF	1K VIDEO buffers: #0-even frame, #1-odd frame
+1400 - 17FF	1K VIDEO buffers: #2-screen or PLAYFIELD, #3-screen or PLAYCOLOR
+1800 - 1FFF	1K optional custom character graphics: sprites and tiles
+1C00 - 1FFF	1K custom character graphics: sprites and tiles
+2000 - 7FFF	24K program / data
+8000 - 8FFF	4K VIC character ROM
+9000 - 9FFF	4K VIC I/O 1K area blocks:	#0-int, #1-color, 
+				Ultimem?:	#2-exp, #3-exp
+A000 - AFFF	4K Awesome Boot Cartridge with SLIK module
+B000 - BFFF	4K ABC optional module(s)
+C000 - DFFF	8K BASIC ROM
+E000 - FFFF	8K KERNAL ROM
+
+... in bitmapped mode, VIC stock memory is organized as:
+ - max size 22x10 = 3520 bytes needed (220 8x16 UDC)
+ - double-height characters @ $1000 - $1DBF (max)
+ - 4 custom UDC @ $1DC0, 221-224, may be used as a single 8x16 sprite (2x2)
+ - single video matrix fixed @ $1E00
+
+
+=========
+AUTO-BOOT
+=========
+- initialize: VIC machine with BYTES FREE
+- scan: IEC device #11 for READY - STATUS - "BOOT" PRG sequence
+	else redo for device #10, #9, #8
+- failure: prompt for an ABC diskette in a READY drive
+
+
+VIC-ABC SLIK graphics
+---------------------
+0&1:	TOP	0 = none, 1, 2, or 3-rows, BASIC input buffer: $0200
+2&3:	BOTTOM	0 = none, 1, 2, or 3-rows, DATASETTE buffer: $033C
+6:	
+7:	HIRES	0 = char-mapped, 1 = bit-mapped
+
+
+CHAR mapped mode
+----------------
+- video matrices: $1000, $1200, $1400, $1600
+- 2K for either 256 UDC @ $1800, or
+  more video matrices @ $1800 and $1A00
+  with 128 UDC @ $1C00 and 128 ROM chars
+
+
+BIT mapped mode
+---------------
+- max size 22x20 = 3520 bytes needed (220 8x16 UDC)
+- double-height characters @ $1000 - $1DBF (max)
+- 4 custom UDC @ $1DC0 as an all-purpose 8x16 sprite
+- video matrix fixed @ $1E00
+
+
+SLIK API
+========
+INIT
+CLEAR
+PEEK
+PEEKXY
+POKE
+POKEXY
+PRINTZ
+WAIT
+
+
+SPRITE MACROS
+-------------
+ENABLE sprite#
+DISABLE sprite#
+
+
+TILE QUEUE
+----------
+Commiting TILE & SPRITE characters to a video frame:
+
+... under application control:
++ every program WRITE to PLAYFIELD is "Y" recorded in LO/HI array
+ -	normal WRITE sets b6 & b7 for both video buffers
+ -	static WRITE sets either b6 or b7 for the PENDING video
+ -	COMMIT phase renders a new frame:
+	- enable COMMIT for IRQ handler
+	- dump LO/HO characters from PLAYFIELD into PENDING
+
+... during IRQ frame flip:
++ SPRITE characters WRITE last to PENDING video and "Y" recorded in LO/HI array
+ -	
+
+DIRTYLO index array (255 - 0)
+DIRTYHI index array (255 - 0)
+
+LDX #$00
+STX NEWDIRT
+STX DIRT
+
+; start COMMIT phase under application control, but allow for it to complete 
+; under IRQ handler to RENDER any sprite updates to go with the frame flip.
+
+DIRTYMASK	= $00
+CLEANER		= $01		; b7:video #1, b6:video #2, b5:playfield, b4:topfield
+
+	LDX PENDING
+	STX FROM
+	CPX #>VICFRAME1	; will flip to video #1 next?
+	BNE @scrn2
+	ORA #%10000000	; erase old sprites from video #1
+	BNE @cont
+@scrn2:
+	ORA #%01000000	; erase old sprites from video #2
+@cont:
+	TAY
+	EOR #$FF		; reverse check to clean
+	STA CLEANER
+	TYA
+	;ORA #%00100000	; but always look for PLAYFIELD dirt
+	STA DIRTYMASK
+	TXA
+	STA TO+1
+	ORA #$84		; and its COLOR
+	STA COLOR+1
+	LDX #$00
+	STX FROM
+	STX TO
+	STX COLOR
+
+	LDA #>PLAYCOLOR
+	STA ATTR
+	LDA #>PLAYFIELD
+	STA FROM
+	LDA #>PENDING
+	STA TO
+	LDA #>COLOR
+	STA COLOR
+
+	LDA #%10100000	; b7:video #1, b6:video #2, b5:pending, and color
+	STA DIRTMASK
+	EOR #%11100000
+	STA CLEANER
+
+	INC RENDER
+	LDX DIRTYLO
+	BEQ @hi
+@lo:
+	JSR @commit
+@hi:
+	LDX DIRTYHI
+	BEQ @fini
+	INC ATTR
+	INC FROM
+	INC TO
+	INC COLOR
+	JSR @commit
+@fini:
+	RTS
+
+@commit:
+	LDA RENDER
+	BEQ @fini		; did IRQ take this over?
+	INC DIRTYLO		; yeah, a potential 'glitch'
+	LDY DIRTYLO,X
+	LDA (ATTR),Y
+	STA RVSFLAG		;*
+	AND DIRTMASK
+	BEQ @skip
+	LDA RVSFLAG
+	STA (COLOR),Y
+	AND CLEANER
+	STA (ATTR),Y
+	LDA (FROM),Y
+	STA (TO),Y
+@skip:
+	INX
+	BNE @commit
+	RTS
+
+
+===========
+IRQ handler
+===========
+OBJECTIVE:
+	uses a fixed VIC "flip" rate between screen buffers, 
+	instead of invoking it from the main program (PAL/NTSC):
+	RATE: 0 = 50/60 fps, 1 = 25/30, 2 = 17/20, 3 = 13/15, 4 = 10/12
+
+IRQ:
+	+ do any VIC register handling from RASTER IRQ timing
+	-	SPLIT screen?
+	-	AUDIO track?
+	-	SOUND effect?
+
+SPRITES:
+	+ process any pending operations AFTER video is swapped?
+
+
+================
+PROGRAM CONTROLS
+================
+
+- INIT
+	- PLAYFIELD mode: ROWSxCOLS, 8x8 or 8x16
+	- CREATE sprite(s)
+		- sizes: 8x8 to 32x48
+
+- real-time commands:
+	- CLEAR: erase all
+	- PEEK: read from ACTUAL, PENDING, PLAYFIELD
+	- PEEKXY: read from ACTUAL, PENDING, PLAYFIELD
+	- POKE: write to PLAYFIELD
+	- STATIC: write to PLAYFIELD, queue for ACTUAL and PENDING
+		6-bytes: X/Y, CHAR1/2, COLOR1/2
+
+- queued commands into PENDING for COMMIT phase:
+	SEI
+	- WRITE for PENDING
+	- MOVEDX, MOVEDY: +/- 1 - 127 pixels
+	- MOVEX, MOVEY
+	- REFRESH
+	CLI
+
+- COMMIT action
+	- ASYNC or SYNC call
+
+
+=================
+SPRITE ATTRIBUTES
+=================
+enable:	b7:visible, b6:repeating, b0:XOR
+mode:	b7:collision, b6:
+color1:	0-15 (b7:tile priority, b6:sprite priority)
+color2:	0-15 (b7:tile priority, b6:sprite priority)
+IMAGE:	0-127
+MASK:	0-127
+
+
+================
+IMAGE ATTRIBUTES
+================
+addr:	lo/hi
+height:	1-56
+width:	1-56
+dx:		0-7	; cached image of X-shifted bits
+
+
+Color clash
+~~~~~~~~~~~
+Each sprite can have two independent character colors assigned for painting with
+a video swap operation.  This can make for some interesting video effects, such
+as brighter (use with white), darker (use with black), or dimmer (use with 
+background) color.
+
+------------
+STATIC tile: a sprite tile is NEVER processed/written if its PLAYCOLOR b7 is on.
+
+---------
+ALT mode: a sprite tile WRITE to a non EMPTY cell will skip on each video swap.
+
+--------
+OR mode: color clash occurs when a sprite overlaps any part of another sprite 
+or tile using different color.
+
+XOR mode: will invert overlapping bits, which can be useful when same (or near) 
+colors clash.
+

@@ -1,0 +1,656 @@
+ca65 V2.13.2 - (C) Copyright 1998-2005 Ullrich von Bassewitz
+Main file   : abc-slik.s
+Current file: abc-slik.s
+
+000000r 1               ;***********************************************************************
+000000r 1               ; SLIK graphics for Awesome Boot Cartridge
+000000r 1               ;   written by Robert Hurst <robert@hurst-ri.us>
+000000r 1               ;   updated version: 08-Dec-2015
+000000r 1               ;
+000000r 1               	.fileopt author, "Robert Hurst"
+000000r 1               	.fileopt comment, "SLIK graphics"
+000000r 1               	.fileopt compiler, "ca65"
+000000r 1               	.setcpu "6502"
+000000r 1               
+000000r 1               	.include "slik.s"
+000000r 2               ;***********************************************************************
+000000r 2               ; SLIK: a dual-buffer playfield with software sprite management
+000000r 2               ;	or a bitmapped screen with image copy/cut/paste functions,
+000000r 2               ;	with an optional top or bottom split-screen character mode
+000000r 2               ;  written by Robert Hurst <robert@hurst-ri.us>
+000000r 2               ;  updated version: 27-Dec-2015
+000000r 2               ;
+000000r 2               	.fileopt author, "Robert Hurst"
+000000r 2               	.fileopt comment, "SLIK module"
+000000r 2               	.fileopt compiler, "ca65"
+000000r 2               	.setcpu "6502"
+000000r 2               	.autoimport
+000000r 2               
+000000r 2               	.proc SLIK
+000000r 2               	.segment "CART"
+000000r 2               	.include "abc.h"
+000000r 3               ;***********************************************************************
+000000r 3               ; VIC 20: Awesome Boot Cartridge
+000000r 3               ;   written by Robert Hurst <robert@hurst-ri.us>
+000000r 3               ;   updated version: 21-Oct-2015
+000000r 3               ;
+000000r 3               ; relevant VIC 20 symbols for your program's use or reference
+000000r 3               ;
+000000r 3               RNDSEED		= $8B		; -$8F: BASIC RND seed value
+000000r 3               JIFFYH		= $A0		; jiffy clock high
+000000r 3               JIFFYM		= $A1		; jiffy clock med
+000000r 3               JIFFYL		= $A2		; jiffy clock low
+000000r 3               DATANEXT	= $A6		; DATASETTE pointer (0-191)
+000000r 3               KEYCHARS	= $C6		; number of characters in KEYBUF (0-10)
+000000r 3               RVSFLAG		= $C7		; character reverse flag
+000000r 3               ROWS		= $C8		; current screen row length (16-24)
+000000r 3               CURSOR		= $CC		; cursor enable (0=flash)
+000000r 3               CRSRCHAR	= $CE		; character under cursor
+000000r 3               SCRNLINE	= $D1		; pointer to cursor's screen line
+000000r 3               CRSRCOL		= $D3		; position of cursor on screen line
+000000r 3               CRSR		= $D4		; programmed cursor (0=direct)
+000000r 3               COLS		= $D5		; current screen line length (16-24)
+000000r 3               CRSRROW		= $D6		; screen row where cursor is
+000000r 3               INSERTS		= $D8		; # of INSERTs outstanding
+000000r 3               LINKLINE	= $D9		; -$F0: screen line link table (24-bytes)
+000000r 3               SCRTEMP1	= $F1		; dummy screen link
+000000r 3               SCRTEMP2	= $F2		; screen row marker
+000000r 3               COLORLINE	= $F3		; pointer to cursor's color line
+000000r 3               KEYBOARD	= $F5		; keyboard pointer
+000000r 3               RECEIVE		= $F7		; serial receive pointer
+000000r 3               TRANSMIT	= $F9		; serial transmit pointer
+000000r 3               BASICTMP	= $FF		; BASIC storage
+000000r 3               INPUT		= $0200		; -$0258: 89-character BASIC INPUT buffer
+000000r 3               KEYBUF		= $0277		; -$0280: 10-character keyboard buffer
+000000r 3               COLORCODE	= $0286		; current cursor color
+000000r 3               CRSRCOLOR	= $0287		; color under cursor
+000000r 3               SCRNPAGE	= $0288		; active screen memory page (unexpanded = $1E)
+000000r 3               SHIFTMODE	= $0291		; 0=allow, 128=locked
+000000r 3               SCROLLFLAG	= $0292		; auto scrolldown flag
+000000r 3               TEMPA		= $030C		; temp storage for A register
+000000r 3               TEMPX		= $030D		; temp storage for X register
+000000r 3               TEMPY		= $030E		; temp storage for Y register
+000000r 3               TEMPP		= $030F		; temp storage for P register
+000000r 3               VECTORS		= $0310		; -$033B: VIC ROM jump vectors
+000000r 3               DATASETTE	= $033C		; -$03FB: 192-byte tape input buffer
+000000r 3               RAM0		= $0400		; -$0FFF: 3K expansion
+000000r 3               RAM		= $1000		; -$1FFF: internal memory
+000000r 3               RAM1		= $2000		; -$3FFF: 8K expansion
+000000r 3               RAM2		= $4000		; -$5FFF: 8K expansion
+000000r 3               RAM3		= $6000		; -$7FFF: 8K expansion
+000000r 3               PET		= $8000		; -$8FFF: 4k character rom
+000000r 3               MASK		= $8270		; ROM character $4D: Shift-N (/)
+000000r 3               VIC		= $9000		; start of Video Interface Chip registers
+000000r 3               CART		= $A000		; -$BFFF: 8K expansion
+000000r 3               ; ****	VIC BASIC & KERNAL ROM	****
+000000r 3               PRINT		= $CB1E		; print null-terminated string
+000000r 3               PRINTUINT	= $DDCD		; print XA as unsigned integer
+000000r 3               BASSFT		= $E467		; BASIC warm start
+000000r 3               MACHINE		= $EDE4		; NTSC=$05, PAL=$0C
+000000r 3               STOPKEY		= $F770		; check for STOP key pressed
+000000r 3               RESET		= $FD22		; warm startup
+000000r 3               VECTOR		= $FF8D		; read/set vectored I/O
+000000r 3               RESTOR		= $FF8A		; restore default I/O vectors
+000000r 3               SETMSG		= $FF90		; control KERNAL messages
+000000r 3               SECOND		= $FF93		; send secondary address after LISTEN
+000000r 3               TKSA		= $FF96		; send secondary address after TALK
+000000r 3               MEMTOP		= $FF99		; read/set the top of memory
+000000r 3               MEMBOT		= $FF9C		; read/set the bottom of memory
+000000r 3               SCNKEY		= $FF9F		; scan keyboard
+000000r 3               SETTMO		= $FFA2		; set timeout on serial bus
+000000r 3               ACPTR		= $FFA5		; input byte from serial port
+000000r 3               CIOUT		= $FFA8		; output byte to serial port
+000000r 3               UNTLK		= $FFAB		; command serial bus device to UNTALK
+000000r 3               UNLSN		= $FFAE		; command serial bus device to UNLISTEN
+000000r 3               LISTEN		= $FFB1		; send LISTEN command
+000000r 3               TALK		= $FFB4		; send TALK command
+000000r 3               READST		= $FFB7		; read I/O status word
+000000r 3               SETLFS		= $FFBA		; set logical, first and second addresses
+000000r 3               SETNAM		= $FFBD		; set filename
+000000r 3               OPEN		= $FFC0		; open a logical file
+000000r 3               CLOSE		= $FFC3		; close a logical file
+000000r 3               CHKIN		= $FFC6		; open channel for input
+000000r 3               CHKOUT		= $FFC9		; open channel for output
+000000r 3               CLRCHN		= $FFCC		; close input and out channels
+000000r 3               CHRIN		= $FFCF		; input character from channel
+000000r 3               CHROUT		= $FFD2		; output character to channel
+000000r 3               LOAD		= $FFD5		; load RAM from a device
+000000r 3               SAVE		= $FFD8		; save RAM to device
+000000r 3               SETTIM		= $FFDB		; set real time clock
+000000r 3               RDTIM		= $FFDE		; read real time clock
+000000r 3               STOP		= $FFE1		; scan STOP key
+000000r 3               GETIN		= $FFE4		; get a character from keyboard queue
+000000r 3               CLALL		= $FFE7		; close all channels and files
+000000r 3               UDTIM		= $FFEA		; increment real time clock
+000000r 3               SCREEN		= $FFED		; return X,Y organization of screen
+000000r 3               PLOT		= $FFF0		; read/set X,Y cursor position
+000000r 3               IOBASE		= $FFF3		; returns base address of I/O devices
+000000r 3               
+000000r 3               
+000000r 2               	.include "slik.h"
+000000r 3               ;***********************************************************************
+000000r 3               ; SLIK module header
+000000r 3               ;  written by Robert Hurst <robert@hurst-ri.us>
+000000r 3               ;  updated version: 02-Jan-2016
+000000r 3               ;
+000000r 3               ; runtime SLIK memory map
+000000r 3               ;
+000000r 3               USRJ		= $00		; indirect index
+000000r 3               VECTOR0		= $01		; indirect register
+000000r 3               SLIKVTMP	= $C7
+000000r 3               IRQZP		= $D9		; +0 thru +23
+000000r 3               IRQFIELD	= $D9		; current
+000000r 3               IRQFIELD2	= $DB
+000000r 3               IRQCOLOR	= $DD		; current
+000000r 3               IRQCOLOR2	= $DF
+000000r 3               IRQFLIP		= $F0		; cmd register
+000000r 3               SLIKLP		= $F1		; list pointer
+000000r 3               SLIKLP2		= $F2		; list pointer
+000000r 3               VECTOR1		= $F7		; indirect register
+000000r 3               VECTOR2		= $F9		; indirect register
+000000r 3               VECTOR3		= $FB		; indirect register
+000000r 3               VECTOR4		= $FD		; indirect register
+000000r 3               
+000000r 3               ;SLIK use of zero page
+000000r 3               ; dirty buffer copying: FROM, TO, ATTR
+000000r 3               ; sprite rendering: FORE, BACK, TO
+000000r 3               
+000000r 3               				; VECTORS - VECTORS+3
+000000r 3               SLIKSCLIPX	= $0334		; pixels to right border: 8 * (PLAYCOLS + 2)
+000000r 3               SLIKSCLIPY	= $0335		; pixels to bottom border: 8 * (PLAYROWS + 2)
+000000r 3               SLIKXYZ		= $0336		;
+000000r 3               SLIKVMODE	= $0337		; video graphics mode
+000000r 3               SLIKVBACK	= $0338		; video page rendering before swap
+000000r 3               SLIKVFORE	= $0339		; video page active after swap
+000000r 3               SLIKVCOLOR	= $033A		; video page playing color, with each cell:
+000000r 3               				; b7: dirty bit for video page 1 only
+000000r 3               				; b6: dirty bit for video page 2 only
+000000r 3               				; b5: dirty bit for pending page
+000000r 3               				; b4: static cell bit, sprites go behind
+000000r 3               				; b3: multicolor mode
+000000r 3               				; b0-2: cell coloring
+000000r 3               SLIKVFIELD	= $033B		; video page playing field
+000000r 3               
+000000r 3               ; Ultimem's IO2&3 memory
+000000r 3               SLIKINDEXLIST = $9800
+000000r 3               SLIKCOLORLIST = $9900
+000000r 3               SLIKFIELDLIST = $9A00
+000000r 3               SLIKFIELD1 = $9C00
+000000r 3               SLIKFIELD2 = $9E00
+000000r 3               
+000000r 3               
+000000r 3               ;*********************************************************************
+000000r 3               ; useful ca65 .asciiz translations to CBM codes for print string
+000000r 3               ;
+000000r 3               .charmap '@', $80
+000000r 3               .charmap 'A', $81
+000000r 3               .charmap 'B', $82
+000000r 3               .charmap 'C', $83
+000000r 3               .charmap 'D', $84
+000000r 3               .charmap 'E', $85
+000000r 3               .charmap 'F', $86
+000000r 3               .charmap 'G', $87
+000000r 3               .charmap 'H', $88
+000000r 3               .charmap 'I', $89
+000000r 3               .charmap 'J', $8A
+000000r 3               .charmap 'K', $8B
+000000r 3               .charmap 'L', $8C
+000000r 3               .charmap 'M', $8D
+000000r 3               .charmap 'N', $8E
+000000r 3               .charmap 'O', $8F
+000000r 3               .charmap 'P', $90
+000000r 3               .charmap 'Q', $91
+000000r 3               .charmap 'R', $92
+000000r 3               .charmap 'S', $93
+000000r 3               .charmap 'T', $94
+000000r 3               .charmap 'U', $95
+000000r 3               .charmap 'V', $96
+000000r 3               .charmap 'W', $97
+000000r 3               .charmap 'X', $98
+000000r 3               .charmap 'Y', $99
+000000r 3               .charmap 'Z', $9A
+000000r 3               .charmap '{', $9B
+000000r 3               .charmap '|', $9C	; British pound symbol
+000000r 3               .charmap '}', $9D
+000000r 3               .charmap '^', $9E	; uparrow symbol
+000000r 3               .charmap '`', $9F	; left arrow symbol
+000000r 3               .charmap ' ', $A0
+000000r 3               .charmap '!', $A1
+000000r 3               .charmap '"', $A2
+000000r 3               .charmap '#', $A3
+000000r 3               .charmap '$', $A4
+000000r 3               .charmap '%', $A5
+000000r 3               .charmap '&', $A6
+000000r 3               .charmap ''', $A7
+000000r 3               .charmap '(', $A8
+000000r 3               .charmap ')', $A9
+000000r 3               .charmap '*', $AA
+000000r 3               .charmap '+', $AB
+000000r 3               .charmap ',', $AC
+000000r 3               .charmap '-', $AD
+000000r 3               .charmap '.', $AE
+000000r 3               .charmap '/', $AF
+000000r 3               .charmap '0', $B0
+000000r 3               .charmap '1', $B1
+000000r 3               .charmap '2', $B2
+000000r 3               .charmap '3', $B3
+000000r 3               .charmap '4', $B4
+000000r 3               .charmap '5', $B5
+000000r 3               .charmap '6', $B6
+000000r 3               .charmap '7', $B7
+000000r 3               .charmap '8', $B8
+000000r 3               .charmap '9', $B9
+000000r 3               .charmap ':', $BA
+000000r 3               .charmap ';', $BB
+000000r 3               .charmap '<', $BC
+000000r 3               .charmap '=', $BD
+000000r 3               .charmap '>', $BE
+000000r 3               .charmap '?', $BF
+000000r 3               .charmap '~', $DE	; PI symbol
+000000r 3               
+000000r 3               
+000000r 2               
+000000r 2               
+000000r 2               ;***********************************************************************
+000000r 2               ; SLIK INITIALIZATION
+000000r 2               ;
+000000r 2               ; MUST BE INVOKED ONCE BEFORE USING ANY OTHER SLIK CALL
+000000r 2               ; value in COLORCODE is used to fill the color buffer
+000000r 2               ;
+000000r 2               ; A:	$80	0 = split off, 1 = split on
+000000r 2               ;	$40	0 = char-mapped, 1 = bit-mapped
+000000r 2               ;	$30	screen modes
+000000r 2               ;	$08	0 = auto flip, 1 = flip on-demand
+000000r 2               ;	$04	0 = bottom ($0390 or higher), 1 = top ($0200)
+000000r 2               ;	$03	0 = n/a, 1, 2, or 3 split rows
+000000r 2               ;
+000000r 2               ; char-mapped modes (ROWxCOL):
+000000r 2               ;	00:	506 cells @ 23x22 (default)
+000000r 2               ;	01:	504 cells @ 21x24 (wide)
+000000r 2               ;	10:	504 cells @ 24x21 (narrow)
+000000r 2               ;	11:	506 cells @ 22x23 (exchange)
+000000r 2               ;
+000000r 2               ; bit-mapped video matrix size: 220 cells = 3520 ($1200 - $1FBF)
+000000r 2               ;	00:	220 cells @ 11x20 (tall & narrow)
+000000r 2               ;	01:	220 cells @ 10x22 (short & wide)
+000000r 2               ;	10:  not implemented
+000000r 2               ;	11:  not implemented
+000000r 2               ; characters 236-255 ($1F60-$1FFF) are free to use
+000000r 2               ;
+000000r 2               ; X:	$F0	auxiliary color (0-15)
+000000r 2               ;	$0F	volume (0-15)
+000000r 2               ;
+000000r 2               ; Y:	$F0	screen color (0-15)
+000000r 2               ;	$08	reverse mode (0:on, 1:off)
+000000r 2               ;	$07	border color (0-7)
+000000r 2               ;
+000000r 2               ;			VIC COLOR PALETTE
+000000r 2               ;		0: black	8: orange
+000000r 2               ;		1: white	9: lt. orange
+000000r 2               ;		2: red		A: pink
+000000r 2               ;		3: cyan		B: lt. cyan
+000000r 2               ;		4: magenta	C: lt. magenta
+000000r 2               ;		5: green	D: lt. green
+000000r 2               ;		6: blue		E: lt. blue
+000000r 2               ;		7: yellow	F: lt. yellow
+000000r 2               ;
+000000r 2               INIT:
+000000r 2  8C 0F 90     	sty VIC+15		; screen+border color
+000003r 2  8E 0E 90     	stx VIC+14		; aux+vol
+000006r 2  8D 37 03     	sta SLIKVMODE
+000009r 2               
+000009r 2               	; kernal init
+000009r 2  A9 01        	lda #1
+00000Br 2  85 C7        	sta RVSFLAG	; character reverse flag
+00000Dr 2  A9 80        	lda #128
+00000Fr 2  8D 91 02     	sta SHIFTMODE	; locked
+000012r 2  A9 00        	lda #0
+000014r 2  8D 92 02     	sta SCROLLFLAG	; disable
+000017r 2               
+000017r 2               	; VIC register init
+000017r 2  AD 02 90     	lda VIC+2
+00001Ar 2  29 7F        	and #$7F		; if $80 enabled, +$0200 to base screen address
+00001Cr 2  8D 02 90     	sta VIC+2
+00001Fr 2               
+00001Fr 2  AD E4 ED     	lda MACHINE
+000022r 2  C9 05        	cmp #5
+000024r 2  D0 08        	bne PAL
+000026r 2               
+000026r 2               	; NTSC setup
+000026r 2  A2 43        NTSC:	ldx #<@NTSC		; load the timer low-byte latches
+000028r 2  A0 42        	ldy #>@NTSC
+00002Ar 2  A9 70        	lda #$70		; top of last raster row
+00002Cr 2  D0 06        	bne IRQSYNC
+00002Er 2               @NTSC = $4243			; (261 * 65 - 2)
+00002Er 2               
+00002Er 2               	; PAL setup
+00002Er 2  A2 86        PAL:	ldx #<@PAL		; load the timer low-byte latches
+000030r 2  A0 56        	ldy #>@PAL
+000032r 2  A9 76        	lda #$76		; raster line 228/229
+000034r 2               @PAL = $5686			; (312 * 71 - 2)
+000034r 2               
+000034r 2               IRQSYNC:
+000034r 2  CD 04 90     	cmp VIC+4
+000037r 2  D0 FB        	bne IRQSYNC
+000039r 2  8E 26 91     	stx $9126		; load T1 latch low
+00003Cr 2  8C 25 91     	sty $9125		; load T1 latch high, and transfer both to T1 counter
+00003Fr 2               
+00003Fr 2               	; character height (0=8, 1=16)
+00003Fr 2  AD 03 90     	lda VIC+3
+000042r 2  29 FE        	and #$FE
+000044r 2               	;bit SLIKMODE
+000044r 2               	;bmi @ch	; bit-7 clear
+000044r 2  F0 02        	beq @ch	; bit-6 clear
+000046r 2  09 01        	ora #1
+000048r 2  8D 03 90     @ch:	sta VIC+3
+00004Br 2               
+00004Br 2  78           	sei			; turn on auto-flip
+00004Cr 2  A2 rr        	ldx #<EXECUTE
+00004Er 2  A0 rr        	ldy #>EXECUTE
+000050r 2  8E 14 03     	stx $0314
+000053r 2  8C 15 03     	sty $0315
+000056r 2  58           	cli
+000057r 2               
+000057r 2  A2 00        	ldx #0
+000059r 2  86 D9        	stx IRQFIELD
+00005Br 2  86 DB        	stx IRQFIELD2
+00005Dr 2  86 DD        	stx IRQCOLOR
+00005Fr 2  86 DF        	stx IRQCOLOR2
+000061r 2               
+000061r 2  AC 88 02     	ldy SCRNPAGE
+000064r 2  84 DA        	sty IRQFIELD+1
+000066r 2  98           	tya
+000067r 2  C8           	iny
+000068r 2  84 DC        	sty IRQFIELD2+1
+00006Ar 2  09 84        	ora #$84
+00006Cr 2  85 DE        	sta IRQCOLOR+1
+00006Er 2  A8           	tay
+00006Fr 2  C8           	iny
+000070r 2  84 E0        	sty IRQCOLOR2+1
+000072r 2               
+000072r 2  20 rr rr     	jsr CLEAR
+000075r 2  60           	rts
+000076r 2               
+000076r 2               ; VIC register tables
+000076r 2  05 19 16     @vic:	.byte $05, $19, $16
+000079r 2               	; screen rows (<<1) with character height
+000079r 2  2E 2A 30 2C  @vic3:	.byte 23*2, 21*2, 24*2, 22*2
+00007Dr 2  17 15        @vic3t:	.byte 23, 21
+00007Fr 2               
+00007Fr 2               
+00007Fr 2               ;*********************************************************************
+00007Fr 2               ; SLIK CLEAR: erase the video/color matrices
+00007Fr 2               ;
+00007Fr 2               ; value in COLORCODE will be used to fill the COLOR buffers.
+00007Fr 2               ; value in CRSRCHAR with the character code to fill the FIELD buffers.
+00007Fr 2               ;
+00007Fr 2               CLEAR:
+00007Fr 2  A5 F0        	lda IRQFLIP
+000081r 2  29 7F        	and #$7F
+000083r 2  85 F0        	sta IRQFLIP
+000085r 2               
+000085r 2  A0 00        	ldy #0
+000087r 2  84 D3        	sty CRSRCOL		; maintain column offset to row
+000089r 2  84 D6        	sty CRSRROW		; maintain row number
+00008Br 2               
+00008Br 2  A2 01        	ldx #1
+00008Dr 2  AD 86 02     	lda COLORCODE
+000090r 2               @color:
+000090r 2  91 DD        	sta (IRQCOLOR),y
+000092r 2  91 DF        	sta (IRQCOLOR2),y
+000094r 2  C8           	iny
+000095r 2  D0 F9        	bne @color
+000097r 2  E6 DE        	inc IRQCOLOR+1
+000099r 2  E6 E0        	inc IRQCOLOR2+1
+00009Br 2  CA           	dex
+00009Cr 2  10 F2        	bpl @color
+00009Er 2               
+00009Er 2  A5 CE        	lda CRSRCHAR
+0000A0r 2               @field:
+0000A0r 2  91 D9        	sta (IRQFIELD),y
+0000A2r 2  91 DB        	sta (IRQFIELD2),y
+0000A4r 2  C8           	iny
+0000A5r 2  D0 F9        	bne @field
+0000A7r 2  E6 DA        	inc IRQFIELD+1
+0000A9r 2  E6 DC        	inc IRQFIELD2+1
+0000ABr 2  E8           	inx
+0000ACr 2  F0 F2        	beq @field
+0000AEr 2               
+0000AEr 2  C6 DE        	dec IRQCOLOR+1
+0000B0r 2  C6 E0        	dec IRQCOLOR2+1
+0000B2r 2  C6 DA        	dec IRQFIELD+1
+0000B4r 2  C6 DC        	dec IRQFIELD2+1
+0000B6r 2  A5 F0        	lda IRQFLIP
+0000B8r 2  09 80        	ora #$80
+0000BAr 2  85 F0        	sta IRQFLIP
+0000BCr 2               
+0000BCr 2  60           	rts
+0000BDr 2               
+0000BDr 2               
+0000BDr 2               ;***********************************************************************
+0000BDr 2               ; SLIK CREATE A NEW IMAGE
+0000BDr 2               ;
+0000BDr 2               ; A:	enable:	0=invisible; 1=visible
+0000BDr 2               ;	player:	0=ignore; 1=detect
+0000BDr 2               ;	ghost:	0=merge image, 1=invert image
+0000BDr 2               ;	repeat:	0=independent, 1=reuse previous
+0000BDr 2               ;	floatY:	0=fixed cell, 1=vertical float
+0000BDr 2               ;	floatX:	0=fixed cell, 1=horizontal float
+0000BDr 2               ; Y/X:	height/width
+0000BDr 2               ; SP+2:	pointer to bitmap
+0000BDr 2               ;
+0000BDr 2               NEW:
+0000BDr 2  8D 0C 03     	sta TEMPA
+0000C0r 2  8E 0D 03     	stx TEMPX
+0000C3r 2  8C 0E 03     	sty TEMPY
+0000C6r 2               
+0000C6r 2  20 rr rr     	jsr ANIM
+0000C9r 2  60           	rts
+0000CAr 2               
+0000CAr 2               
+0000CAr 2               ;***********************************************************************
+0000CAr 2               ; SLIK IMAGE REPLACE EXISTING WITH NEW BITMAP POINTER
+0000CAr 2               ;
+0000CAr 2               ANIM:
+0000CAr 2  68           	pla
+0000CBr 2  8D 00 04     	sta $0400
+0000CEr 2  68           	pla
+0000CFr 2  8D 01 04     	sta $0401
+0000D2r 2  20 rr rr     	jsr ME
+0000D5r 2  60           	rts
+0000D6r 2               
+0000D6r 2               
+0000D6r 2               ;***********************************************************************
+0000D6r 2               ; SLIK IMAGE ABSOLUTE X/Y COORDINATE MOVE
+0000D6r 2               ;
+0000D6r 2               MOVE:
+0000D6r 2  8E 00 04     	stx $0400
+0000D9r 2  8C 01 04     	sty $0401
+0000DCr 2  60           	rts
+0000DDr 2               
+0000DDr 2               
+0000DDr 2               DX:
+0000DDr 2  60           	rts
+0000DEr 2               
+0000DEr 2               
+0000DEr 2               DY:
+0000DEr 2  60           	rts
+0000DFr 2               
+0000DFr 2               
+0000DFr 2               ME:
+0000DFr 2  60           	rts
+0000E0r 2               
+0000E0r 2               REFRESH:
+0000E0r 2  60           	rts
+0000E1r 2               
+0000E1r 2               SYNC:
+0000E1r 2  60           	rts
+0000E2r 2               
+0000E2r 2               
+0000E2r 2               ;***********************************************************************
+0000E2r 2               ; SLIK FUNCTION: return masking bits for a multicolored raster
+0000E2r 2               ;
+0000E2r 2               ; A:	pass multicolored raster by reference
+0000E2r 2               ;
+0000E2r 2               MCMASK:
+0000E2r 2  48           	pha
+0000E3r 2  29 C0        	and #%11000000
+0000E5r 2  85 00        	sta $00
+0000E7r 2  68           	pla
+0000E8r 2  48           	pha
+0000E9r 2  29 30        	and #%00110000
+0000EBr 2  05 00        	ora $00
+0000EDr 2  85 00        	sta $00
+0000EFr 2  68           	pla
+0000F0r 2  48           	pha
+0000F1r 2  29 0C        	and #%00001100
+0000F3r 2  05 00        	ora $00
+0000F5r 2  85 00        	sta $00
+0000F7r 2  68           	pla
+0000F8r 2  29 03        	and #%00000011
+0000FAr 2  05 00        	ora $00
+0000FCr 2  85 00        	sta $00
+0000FEr 2  60           	rts
+0000FFr 2               
+0000FFr 2               
+0000FFr 2               ;***********************************************************************
+0000FFr 2               ; SLIK WRITE: put a tile on the playing field stack
+0000FFr 2               ;
+0000FFr 2               ; pass A=character, Y=row, X=column
+0000FFr 2               ;
+0000FFr 2               WRITE:
+0000FFr 2  8D 0C 03     	sta TEMPA
+000102r 2  8E 0D 03     	stx TEMPX
+000105r 2  8C 0E 03     	sty TEMPY
+000108r 2               
+000108r 2  A5 D5        	lda COLS
+00010Ar 2  29 03        	and #3
+00010Cr 2  AA           	tax
+00010Dr 2  BD rr rr     	lda @colhi-1,x
+000110r 2  CD 0D 03     	cmp TEMPX
+000113r 2               
+000113r 2  AE 0D 03     	ldx TEMPX
+000116r 2  AC 0E 03     	ldy TEMPY
+000119r 2  AD 0C 03     	lda TEMPA
+00011Cr 2  60           	rts
+00011Dr 2               
+00011Dr 2               @cols:
+00011Dr 2  rr rr rr rr  	.word	@r24c21,@r23c22,@r22c23
+000121r 2  rr rr        
+000123r 2               @colhi:
+000123r 2  0D 0C 0C     	.byte	13,12,12
+000126r 2               @r24c21:
+000126r 2  15 2A 3F 54  	.byte	$15,$2A,$3F,$54,$69,$7E,$93,$A8,$BD,$D2,$E7,$FC
+00012Ar 2  69 7E 93 A8  
+00012Er 2  BD D2 E7 FC  
+000132r 2  11 26 3B 50  	.byte	$11,$26,$3B,$50,$65,$7A,$8F,$A4,$B9,$CE,$E3,$F8
+000136r 2  65 7A 8F A4  
+00013Ar 2  B9 CE E3 F8  
+00013Er 2               @r23c22:
+00013Er 2  16 2C 42 58  	.byte	$16,$2C,$42,$58,$6E,$84,$9A,$B0,$C6,$DC,$F2
+000142r 2  6E 84 9A B0  
+000146r 2  C6 DC F2     
+000149r 2  08 1E 34 4A  	.byte	$08,$1E,$34,$4A,$60,$76,$8C,$A2,$B8,$CE,$E4,$FA
+00014Dr 2  60 76 8C A2  
+000151r 2  B8 CE E4 FA  
+000155r 2               @r22c23:
+000155r 2  17 2E 45 5C  	.byte	$17,$2E,$45,$5C,$73,$8A,$9D,$B8,$CF,$E6,$FD
+000159r 2  73 8A 9D B8  
+00015Dr 2  CF E6 FD     
+000160r 2  14 2B 42 59  	.byte	$14,$2B,$42,$59,$70,$87,$9E,$B5,$CC,$E3,$FA
+000164r 2  70 87 9E B5  
+000168r 2  CC E3 FA     
+00016Br 2               
+00016Br 2               
+00016Br 2               ;***********************************************************************
+00016Br 2               ; SLIK RENDER: sprite image processing
+00016Br 2               ;
+00016Br 2               RENDER:
+00016Br 2  60           	rts
+00016Cr 2               
+00016Cr 2               
+00016Cr 2               ;***********************************************************************
+00016Cr 2               ; SLIK EXECUTE: interrupt request handler
+00016Cr 2               ; - if enabled, manage screen split mode
+00016Cr 2               ; - if auto, swap VIC video buffers
+00016Cr 2               ; - empty SLIK command queue: ANIM, MOVE, DX, DY, etc.
+00016Cr 2               ;
+00016Cr 2               EXECUTE:
+00016Cr 2  24 F0        	bit IRQFLIP
+00016Er 2  10 03        	bpl @1
+000170r 2  4C BF EA     	jmp $EABF
+000173r 2               
+000173r 2               
+000173r 2               	; 1 - process lists to restore current video,
+000173r 2               	; adding to lists any double-writes
+000173r 2               @1:
+000173r 2  A6 F1        	ldx SLIKLP
+000175r 2  F0 19        	beq @2
+000177r 2  BC 00 98     	ldy SLIKINDEXLIST,x
+00017Ar 2  BD 00 99     	lda SLIKCOLORLIST,x
+00017Dr 2  0A           	asl
+00017Er 2  B0 08        	bcs @vhi
+000180r 2  4A           @vlo:	lsr
+000181r 2  91 DD        	sta (IRQCOLOR),y
+000183r 2  BD 00 9A     	lda SLIKFIELDLIST,x
+000186r 2  91 D9        	sta (IRQFIELD),y
+000188r 2  4A           @vhi:	lsr
+000189r 2  91 DF        	sta (IRQCOLOR2),y
+00018Br 2  BD 00 9A     	lda SLIKFIELDLIST,x
+00018Er 2  91 DB        	sta (IRQFIELD2),y
+000190r 2               
+000190r 2               
+000190r 2               	; 2 - swap video making pending = current
+000190r 2               @2:
+000190r 2  A5 DA        	lda IRQFIELD+1
+000192r 2  49 02        	eor #2
+000194r 2  85 DA        	sta IRQFIELD+1
+000196r 2  98           	tya
+000197r 2  C8           	iny
+000198r 2  84 DC        	sty IRQFIELD2+1
+00019Ar 2  A5 DE        	lda IRQCOLOR+1
+00019Cr 2  49 02        	eor #2
+00019Er 2  85 DE        	sta IRQCOLOR+1
+0001A0r 2  98           	tya
+0001A1r 2  C8           	iny
+0001A2r 2  84 E0        	sty IRQCOLOR2+1
+0001A4r 2               
+0001A4r 2  AD 02 90     	lda VIC+2
+0001A7r 2  49 80        	eor #$80
+0001A9r 2  8D 02 90     	sta VIC+2		; re-direct VIC to other screen buffer
+0001ACr 2               
+0001ACr 2               
+0001ACr 2               	; 3 - process lists to update current video
+0001ACr 2               
+0001ACr 2               
+0001ACr 2               	; 4 - write sprites, swapping flagged UDC tiles,
+0001ACr 2               	; and saving background to lists
+0001ACr 2               
+0001ACr 2               
+0001ACr 2               	; 5 - JMP user handler
+0001ACr 2  4C BF EA     	jmp $EABF
+0001AFr 2               
+0001AFr 2               	.endproc
+0001AFr 2               
+0001AFr 2               
+0001AFr 1               
+0001AFr 1               	.proc ABC
+0001AFr 1               	.segment "JUMP"
+000000r 1               
+000000r 1               	.global SLIKINIT
+000000r 1               
+000000r 1               SLIKAPI:	; cartridge api jump table, i.e., JSR SLIKINIT
+000000r 1  4C rr rr     SLIKINIT:	JMP SLIK::INIT		; initialize SLIK
+000003r 1  4C rr rr     SLIKNEW:	JMP SLIK::NEW		; create a new sprite
+000006r 1  4C rr rr     SLIKANIM:	JMP SLIK::ANIM		; update sprite to use an image
+000009r 1  4C rr rr     SLIKMOVE:	JMP SLIK::MOVE		; absolute sprite update to X/Y position
+00000Cr 1  4C rr rr     SLIKDX:		JMP SLIK::DX		; relative sprite update in X position
+00000Fr 1  4C rr rr     SLIKDY:		JMP SLIK::DY		; relative sprite update in Y position
+000012r 1  4C rr rr     SLIKME:		JMP SLIK::ME		; forces this sprite to render
+000015r 1  4C rr rr     SLIKMCMASK:	JMP SLIK::MCMASK	; function to return multicolor masking
+000018r 1  4C rr rr     SLIKREFRESH:	JMP SLIK::REFRESH	; forces all active sprites to render
+00001Br 1  4C rr rr     SLIKEXECUTE:	JMP SLIK::EXECUTE	; IRQ handler
+00001Er 1               
+00001Er 1               	.endproc
+00001Er 1               
+00001Er 1               

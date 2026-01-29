@@ -1,0 +1,11 @@
+ca65 V2.13.2 - (C) Copyright 1998-2005 Ullrich von Bassewitz
+Main file   : test.s
+Current file: test.s
+
+000000r 1               	.autoimport
+000000r 1               	.segment "CODE"
+000000r 1               
+000000r 1  20 rr rr     	jsr SLIKINIT
+000003r 1  60           	rts
+000004r 1               
+000004r 1               

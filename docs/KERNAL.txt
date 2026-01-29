@@ -1,0 +1,51 @@
+KERNAL POWER UP ACTIVITIES*
+
+1) KERNAL checks for the presence of ROM at $A000
+
+The KERNAL looks in memory at $A000 for the AUTO START
+ROM SEQUENCE, if this sequence is present, control is
+transferred to the ROM program.
+If this AUTO START ROM code is not present normal system
+initialization continues.
+
+
+2) RAM test
+
+The RAM TEST routine first clears memory from $0000-$00FF
+and from $0200-$03FF. The cassette buffer pointer is initialized to
+$033C.
+
+The RAM test starts at location $0400 and works upward,
+checking for the first byte of RAM memory (start-of-RAM). If this
+location is greater than $1000, then memory is considered bad and
+an error screen is shown.
+
+Once the test has found the start of RAM it continues, checking
+upward for the first non-RAM location (top-of-RAM). If this location
+is <$2000, then memory is considered bad and an error screen is
+shown.
+
+If the top-of-RAM location is greater or equal to $2100, then the
+screen is set to start at $1000, the bottom-of-memory is set to
+$1200, and the top-of-memory is set to the top-of-RAM location.
+
+If the top-of-RAM location is less than $2100, then the screen is
+set to start at $1E00, the bottom-of-memory is set to start-of-RAM,
+and the top-of-memory is set to $1E00.
+
+
+3) Other Activities
+
+I/O vectors are set to default values.
+
+The indirect jump table in low memory is established.
+
+The GETCHAR routine is created on page zero.
+
+The screen is then cleared, and the 'BYTES FREE' power up
+message is displayed. Control of the system is turned over to
+BASIC and the user.
+
+
+* scraped off the VIC 20 Programmer's Reference Guide, 6th printing.
+

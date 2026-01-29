@@ -1,0 +1,30 @@
+Modules list:
+-------------
+abc-slik.o:
+    CART              Offs = 000000   Size = 000090
+    JUMP              Offs = 000000   Size = 000018
+basic.o:
+    CODE              Offs = 000000   Size = 000275
+test.o:
+    CODE              Offs = 000275   Size = 000004
+
+
+Segment list:
+-------------
+Name                  Start   End     Size
+--------------------------------------------
+CODE                  0011FF  001477  000279
+CART                  009FFE  00A08D  000090
+JUMP                  00BF00  00BF17  000018
+
+
+Exports list:
+-------------
+SLIKINIT                  00BF00 RLA    
+
+
+Imports list:
+-------------
+SLIKINIT (abc-slik.o):
+    test.o                    test.s(4)
+
