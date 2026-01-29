@@ -15,9 +15,22 @@ LABEL="awesome boot vic"
 ###	compile/link cartridge and module(s)
 ###
 ABC=( abc.s abc-*.s )
+C1541=$(which c1541 2> /dev/null) || C1541="flatpak run --command=c1541 net.sf.VICE"
+XVIC=$(which xvic 2> /dev/null) || XVIC="flatpak run --command=xvic net.sf.VICE"
 
 # dump former compiler outputs to avoid confusion
-rm -f *.o *.lst *.map *.pr? *.sym
+rm -f *.o *.lst *.map [!abc]*.pr? *.sym
+
+while [ "${YN}" != "y" -a "${YN}" != "n" ]; do
+	echo -n "Compile programs (Y/N)? " && read -N1 YN
+	echo
+	YN=`echo ${YN} | tr [:upper:] [:lower:]`
+done
+
+###
+###	compile/link program(s)
+###
+if [ "${YN}" = "y" ]; then
 
 for TITLE in ${ABC[@]}; do
 
@@ -34,18 +47,6 @@ ld65 -C abc.cfg -Ln abc.sym -m abc.map -o abc.prg abc.o abc-*.o
 set +o xtrace
 dd if=abc.prg of=abc.a0 bs=1 skip=2
 sed -e '1,/^Segment/d' -e '1,1d' -e '/^Exports/,$d' abc.map
-
-while [ "${YN}" != "y" -a "${YN}" != "n" ]; do
-	echo -n "Compile programs (Y/N)? " && read -N1 YN
-	echo
-	YN=`echo ${YN} | tr [:upper:] [:lower:]`
-done
-
-
-###
-###	compile/link program(s)
-###
-if [ "$YN" = "y" ]; then
 
 cd prg
 
@@ -68,14 +69,9 @@ done
 
 cd -
 
-fi
-
-
 ###
 ###	create new floppy disk image
 ###
-C1541=$(which c1541 2> /dev/null) || C1541="flatpak run --command=c1541 net.sf.VICE"
-
 if [ -f abc.prg ]; then
 
 echo
@@ -117,36 +113,45 @@ for PRG in prg/*.prg; do
 	fi
 done
 
-echo 
-echo 
-echo DIRECTORY LISTING OF ${OUTPUT}
-$C1541 "${OUTPUT}" -dir
-
+echo
 YN=
 
 fi
+
+fi
+
+echo
+echo DIRECTORY LISTING OF ${OUTPUT}
+$C1541 "${OUTPUT}" -dir
 
 
 ###
 ###	launch emulator
 ###
-XVIC=$(which xvic 2> /dev/null) || XVIC="flatpak run --command=xvic net.sf.VICE"
-while [ "${YN}" != "y" -a "${YN}" != "n" ]; do
-	echo -n "Attach ABC with ${OUTPUT} (Y/N)? " && read -N1 VIC
+while [ "${ABC}" != "a" -a "${ABC}" != "b" -a "${ABC}" != "c" ]; do
+	echo -n "Attach ABC with ${OUTPUT} ([A]bort/[B]oot/[C]art)? " && read -N1 ABC
 	echo
-	YN=`echo ${VIC} | tr [:upper:] [:lower:]`
+	ABC=`echo ${ABC} | tr [:upper:] [:lower:]`
 done
 
-# gnu skool loaded with the cart
-[ "${VIC}" = "y" ] && $XVIC -ntsc -memory all -cartA abc.a0 -drivesound \
-	-drive8truedrive -drive8type 1541 -trapdevice8 \
-	-drive9truedrive -drive9type 1541 \
-	-drive10truedrive -drive10type 1571 -10 "${OUTPUT}" \
-	-drive11truedrive -drive11type 1581
 # original old school expanded rig with a manual boot
-[ "${VIC}" = "Y" ] && $XVIC -ntsc -memory all -autoload abc.prg -drivesound \
-	-drive8truedrive -drive8type 1540 -8 "${OUTPUT}" \
+[ "${ABC}" = "b" ] && $XVIC -default \
+	-ntsc -kernal "kernal.901486-06.bin" -memory all -autoload abc +basicload \
+	-windowxpos "80" -windowypos "80" -windowwidth "1200" -windowheight "1048" \
+	-drivesound +confirmonexit +VICdscan \
+	-drive8truedrive -drive8type 1541 -8 "${OUTPUT}" \
+	-drive9truedrive -drive9type 1541 \
+	-drive10truedrive -drive10type 1571 \
+	-drive11truedrive -drive11type 1581 \
 	-keybuf "rem [restore] for abc\n"
+# gnu skool loaded with the cart and use local filesystem as drive
+[ "${ABC}" = "c" ] && $XVIC -default \
+	-ntsc -kernal "kernal.901486-06.bin" -memory all -cartA abc.a0 \
+	-windowxpos "80" -windowypos "80" -windowwidth "1200" -windowheight "1048" \
+	-drivesound +confirmonexit +VICdscan \
+	+drive8truedrive -drive8type 1540 -trapdevice8 \
+	-drive9truedrive -drive9type 1541 \
+	-drive10truedrive -drive10type 1571 \
+	-drive11truedrive -drive11type 1581
 
 exit
-

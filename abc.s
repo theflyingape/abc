@@ -25,7 +25,7 @@ RAM5:	.word ABC		; starting address
 A0CBM:	.byte $41, $30, $C3, $C2, $CD
 
 	; floppy disk commands
-CMDVIC:	.byte "UI-"		; directive for VIC 20 speed
+CMDVIC:	.byte "UI-"		; initialize directive for VIC 20 speed
 CMDABC: .byte "$ABC"		; directive for access to directory
 CMDRUN: .byte "$AUTORUN",0	; directive for access to directory
 CMDPRG: .byte "$*=P"		; directive for access to directory
@@ -535,4 +535,3 @@ BOOT:
 	jmp @exit
 
 	.endproc
-
