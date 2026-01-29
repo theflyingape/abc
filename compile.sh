@@ -21,8 +21,9 @@ rm -f *.o *.lst *.map *.pr? *.sym
 
 for TITLE in ${ABC[@]}; do
 
+	SRC=${TITLE%.*}
 	set -o xtrace
-	ca65 --listing --include-dir . ${TITLE}
+	ca65 --listing "${SRC}.lst" --include-dir . ${TITLE}
 	set +o xtrace
 
 done
@@ -55,8 +56,9 @@ for TITLE in ${GAMES[@]}; do
 	echo 
 	echo "Compiling '${TITLE}' ... "
 
+	SRC=${TITLE%.*}
 	set -o xtrace
-	ca65 --listing --include-dir . ${TITLE}.s
+	ca65 --listing "${SRC}.lst" --include-dir . ${TITLE}.s
 	ld65 -C basic+8k.cfg -Ln ${TITLE}.sym -m ${TITLE}.map -o ${TITLE}.prg ${TITLE}.o
 	set +o xtrace
 
@@ -72,13 +74,15 @@ fi
 ###
 ###	create new floppy disk image
 ###
+C1541=$(which c1541 2> /dev/null) || C1541="flatpak run --command=c1541 net.sf.VICE"
+
 if [ -f abc.prg ]; then
 
 echo
 
 [ -f ${OUTPUT} ] && rm -fv ${OUTPUT}
 
-c1541 <<-EOD
+$C1541 <<-EOD
 	format "${LABEL},20" ${DISK} "${OUTPUT}"
 	write "abc.prg" "abc"
 	quit
@@ -87,7 +91,7 @@ EOD
 # copy any extra programs into floppy disk image
 for PRG in extra/*.prg; do
 	VIC="`basename "${PRG%.*}"`"
-	c1541 <<-EOD
+	$C1541 <<-EOD
 		attach "${OUTPUT}"
 		write "${PRG}" "${VIC}"
 		quit
@@ -105,7 +109,7 @@ for PRG in prg/*.prg; do
 		[ $BYTES -gt 3585 ] && T=52 || T=20
 		bin/exomizer sfx basic -t $T $PRG -o $PRZ
 
-		c1541 <<-EOD
+		$C1541 <<-EOD
 			attach "${OUTPUT}"
 			write "${PRZ}" "${VIC}"
 			quit
@@ -116,7 +120,7 @@ done
 echo 
 echo 
 echo DIRECTORY LISTING OF ${OUTPUT}
-c1541 "${OUTPUT}" -dir
+$C1541 "${OUTPUT}" -dir
 
 YN=
 
@@ -126,14 +130,23 @@ fi
 ###
 ###	launch emulator
 ###
+XVIC=$(which xvic 2> /dev/null) || XVIC="flatpak run --command=xvic net.sf.VICE"
 while [ "${YN}" != "y" -a "${YN}" != "n" ]; do
 	echo -n "Attach ABC with ${OUTPUT} (Y/N)? " && read -N1 VIC
 	echo
 	YN=`echo ${VIC} | tr [:upper:] [:lower:]`
 done
 
-[ "${VIC}" = "y" ] && xvic -ntsc -memory all -cartA abc.a0 -10 "${OUTPUT}"
-[ "${VIC}" = "Y" ] && xvic -ntsc -memory all -autoload abc.prg -8 "${OUTPUT}" -keybuf "rem [restore] for abc\n"
+# gnu skool loaded with the cart
+[ "${VIC}" = "y" ] && $XVIC -ntsc -memory all -cartA abc.a0 -drivesound \
+	-drive8truedrive -drive8type 1541 -trapdevice8 \
+	-drive9truedrive -drive9type 1541 \
+	-drive10truedrive -drive10type 1571 -10 "${OUTPUT}" \
+	-drive11truedrive -drive11type 1581
+# original old school expanded rig with a manual boot
+[ "${VIC}" = "Y" ] && $XVIC -ntsc -memory all -autoload abc.prg -drivesound \
+	-drive8truedrive -drive8type 1540 -8 "${OUTPUT}" \
+	-keybuf "rem [restore] for abc\n"
 
 exit
 
