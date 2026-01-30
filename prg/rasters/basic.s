@@ -1,6 +1,6 @@
 ;*********************************************************************
 ; COMMODORE VIC 20 ABC PROGRAM STARTUP USING BASIC 2.0
-; written by Robert Hurst <robert@hurst-ri.us>
+; written by Robert Hurst <robert@hurst-us.net>
 ; updated version: 20-Aug-2015
 ;
 	.fileopt author,	"Robert Hurst"

@@ -2,7 +2,7 @@
 #
 # VIC 20: Awesome Boot Cartridge
 #   a convenience script to build a floppy image
-#   written by Robert Hurst <robert@hurst-ri.us>
+#   written by Robert Hurst <robert@hurst-us.net>
 #
 
 # pass target floppy name and which format: d64, d71, or d81

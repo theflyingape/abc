@@ -4,7 +4,7 @@ Current file: basic.s
 
 000000r 1               ;*********************************************************************
 000000r 1               ; COMMODORE VIC 20 ABC PROGRAM STARTUP USING BASIC 2.0
-000000r 1               ; written by Robert Hurst <robert@hurst-ri.us>
+000000r 1               ; written by Robert Hurst <robert@hurst-us.net>
 000000r 1               ; updated version: 20-Aug-2015
 000000r 1               ;
 000000r 1               	.fileopt author,	"Robert Hurst"
@@ -14,7 +14,7 @@ Current file: basic.s
 000000r 1               	.include "abc.h"
 000000r 2               ;***********************************************************************
 000000r 2               ; VIC 20: Awesome Boot Cartridge
-000000r 2               ;   written by Robert Hurst <robert@hurst-ri.us>
+000000r 2               ;   written by Robert Hurst <robert@hurst-us.net>
 000000r 2               ;   updated version: 21-Oct-2015
 000000r 2               ;
 000000r 2               ; relevant VIC 20 symbols for your program's use or reference

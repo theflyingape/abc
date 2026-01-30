@@ -1,6 +1,6 @@
 ;*********************************************************************
 ; COMMODORE VIC 20 BOOT USING BASIC 2.0
-; written by Robert Hurst <robert@hurst-ri.us>
+; written by Robert Hurst <robert@hurst-us.net>
 ; updated version: 01-Sep-2014
 ;
 		.fileopt author,	"Robert Hurst"

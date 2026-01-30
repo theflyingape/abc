@@ -1,7 +1,7 @@
 ;*********************************************************************
 ; Commodore VIC 20 Software Sprite Stack - MMX Edition
 ; last updated: 30-Oct-2011
-; written by Robert Hurst <robert@hurst-ri.us>
+; written by Robert Hurst <robert@hurst-us.net>
 ; with contributions from:
 ; Matt Dawson <matsondawson@gmail.com>
 ;*********************************************************************

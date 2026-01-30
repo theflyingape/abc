@@ -2,7 +2,7 @@
 ; SLIK: a dual-buffer playfield with software sprite management
 ;	or a bitmapped screen with image copy/cut/paste functions,
 ;	with an optional top or bottom split-screen character mode
-;  written by Robert Hurst <robert@hurst-ri.us>
+;  written by Robert Hurst <robert@hurst-us.net>
 ;  updated version: 27-Dec-2015
 ;
 	.fileopt author, "Robert Hurst"

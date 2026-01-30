@@ -1,6 +1,6 @@
 ;***********************************************************************
 ; VIC 20: Awesome Boot Cartridge
-;   written by Robert Hurst <robert@hurst-ri.us>
+;   written by Robert Hurst <robert@hurst-us.net>
 ;   updated version: 21-Oct-2015
 ;
 ; relevant VIC 20 symbols for your program's use or reference

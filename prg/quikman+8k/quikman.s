@@ -1,6 +1,6 @@
 ;*********************************************************************
 ; Quikman+ (8k) for Commodore VIC 20
-; written by Robert Hurst <robert@hurst-ri.us>
+; written by Robert Hurst <robert@hurst-us.net>
 ; updated version: 01-Sep-2014
 ;
 ; see COMPILE.bat for compile, link, and go instructions

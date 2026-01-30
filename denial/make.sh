@@ -2,7 +2,7 @@
 #
 # VIC 20: Awesome Boot Cartridge
 #   a convenience script
-#   written by Robert Hurst <robert@hurst-ri.us>
+#   written by Robert Hurst <robert@hurst-us.net>
 #
 
 # which year

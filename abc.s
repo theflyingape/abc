@@ -1,6 +1,6 @@
 ;***********************************************************************
 ; VIC 20: Awesome Boot Cartridge
-;   written by Robert Hurst <robert@hurst-ri.us>
+;   written by Robert Hurst <robert@hurst-us.net>
 ;   updated version: 05-Jan-2016
 ;
 	.fileopt author, "Robert Hurst"

@@ -1,6 +1,6 @@
 ;***********************************************************************
 ; SLIK module header
-;  written by Robert Hurst <robert@hurst-ri.us>
+;  written by Robert Hurst <robert@hurst-us.net>
 ;  updated version: 02-Jan-2016
 ;
 ; runtime SLIK memory map

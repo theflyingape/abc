@@ -4,7 +4,7 @@ Current file: basic+8k.s
 
 000000r 1               ;*********************************************************************
 000000r 1               ; COMMODORE VIC 20 BOOT USING BASIC 2.0
-000000r 1               ; written by Robert Hurst <robert@hurst-ri.us>
+000000r 1               ; written by Robert Hurst <robert@hurst-us.net>
 000000r 1               ; updated version: 01-Sep-2014
 000000r 1               ;
 000000r 1               		.fileopt author,	"Robert Hurst"
@@ -14,7 +14,7 @@ Current file: basic+8k.s
 000000r 1               		.include "VIC-SSS-MMX.h"
 000000r 2               ;*********************************************************************
 000000r 2               ; Commodore VIC 20 Software Sprite Stack - MMX Edition
-000000r 2               ; written by Robert Hurst <robert@hurst-ri.us>
+000000r 2               ; written by Robert Hurst <robert@hurst-us.net>
 000000r 2               ; last updated: 31-Aug-2014
 000000r 2               ;
 000000r 2               ; === IMPORTANT ===
@@ -1929,7 +1929,7 @@ Current file: basic+8k.s
 000400r 1               		.include "quikman.s"
 000400r 2               ;*********************************************************************
 000400r 2               ; Quikman+ (8k) for Commodore VIC 20
-000400r 2               ; written by Robert Hurst <robert@hurst-ri.us>
+000400r 2               ; written by Robert Hurst <robert@hurst-us.net>
 000400r 2               ; updated version: 01-Sep-2014
 000400r 2               ;
 000400r 2               ; see COMPILE.bat for compile, link, and go instructions
